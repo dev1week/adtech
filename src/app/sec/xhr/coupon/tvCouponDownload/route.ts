@@ -1,4 +1,4 @@
-import { privateDecrypt } from "crypto";
+import { constants, privateDecrypt } from "crypto";
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -36,8 +36,26 @@ function decryptGuid(guid?: string): GuidStatus {
   try {
     const restoredPrivateKey = privateKey.replace(/\\n/g, "\n");
     const buffer = Buffer.from(guid, "base64");
-    privateDecrypt(restoredPrivateKey, buffer);
-    return "DECRYPT_SUCCESS";
+
+    // Support OAEP clients using either SHA-1(default) or SHA-256.
+    const oaepHashes: Array<"sha1" | "sha256"> = ["sha1", "sha256"];
+    for (const oaepHash of oaepHashes) {
+      try {
+        privateDecrypt(
+          {
+            key: restoredPrivateKey,
+            padding: constants.RSA_PKCS1_OAEP_PADDING,
+            oaepHash,
+          },
+          buffer,
+        );
+        return "DECRYPT_SUCCESS";
+      } catch {
+        // try next hash
+      }
+    }
+
+    return "DECRYPT_FAIL";
   } catch {
     return "DECRYPT_FAIL";
   }
