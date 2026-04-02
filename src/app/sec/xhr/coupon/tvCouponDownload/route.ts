@@ -1,0 +1,90 @@
+import { privateDecrypt } from "crypto";
+
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+
+import { getDb } from "@/db/client";
+import { apiCallLogs } from "@/db/schema";
+import { buildOptionsResponse, withCors } from "@/lib/cors";
+import { buildFailureResponse, buildSuccessResponse } from "@/lib/coupon-responses";
+import { getDelayMs } from "@/lib/settings";
+
+const requestSchema = z.object({
+  guid: z.string().optional(),
+  countryCode: z.string().default("KR"),
+  languageCode: z.string().default("ko"),
+});
+
+type GuidStatus = "MISSING_GUID" | "DECRYPT_SUCCESS" | "DECRYPT_FAIL";
+
+function sleep(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function decryptGuid(guid?: string): GuidStatus {
+  if (!guid) {
+    return "MISSING_GUID";
+  }
+
+  const privateKey = process.env.RSA_PRIVATE_KEY;
+  if (!privateKey) {
+    return "DECRYPT_FAIL";
+  }
+
+  try {
+    const restoredPrivateKey = privateKey.replace(/\\n/g, "\n");
+    const buffer = Buffer.from(guid, "base64");
+    privateDecrypt(restoredPrivateKey, buffer);
+    return "DECRYPT_SUCCESS";
+  } catch {
+    return "DECRYPT_FAIL";
+  }
+}
+
+export async function OPTIONS(request: NextRequest) {
+  return buildOptionsResponse(request);
+}
+
+export async function POST(request: NextRequest) {
+  const parsedBody = requestSchema.safeParse(await request.json().catch(() => ({})));
+  const delayMs = await getDelayMs();
+
+  if (!parsedBody.success) {
+    await sleep(delayMs);
+    const response = NextResponse.json(
+      {
+        status: "FAIL",
+        code: "INVALID_REQUEST",
+        message: "요청 바디 형식이 올바르지 않습니다.",
+        timestamp: new Date().toISOString(),
+      },
+      { status: 400 },
+    );
+    return withCors(request, response);
+  }
+
+  const { guid, countryCode, languageCode } = parsedBody.data;
+  const guidStatus = decryptGuid(guid);
+
+  const isSuccess = Math.random() < 0.5;
+  const picked = isSuccess ? buildSuccessResponse() : buildFailureResponse(countryCode);
+
+  await sleep(delayMs);
+
+  const db = getDb();
+  await db.insert(apiCallLogs).values({
+    apiPath: "/sec/xhr/coupon/tvCouponDownload",
+    method: "POST",
+    guidStatus,
+    countryCode,
+    languageCode,
+    responseStatus: picked.statusCode,
+    responseCode: picked.body.code,
+    delayMs,
+  });
+
+  const response = NextResponse.json(picked.body, { status: picked.statusCode });
+  return withCors(request, response);
+}
