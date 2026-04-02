@@ -1,4 +1,5 @@
 import { constants, privateDecrypt } from "crypto";
+import forge from "node-forge";
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -55,7 +56,14 @@ function decryptGuid(guid?: string): GuidStatus {
       }
     }
 
-    return "DECRYPT_FAIL";
+    try {
+      const forgePrivateKey = forge.pki.privateKeyFromPem(restoredPrivateKey);
+      const encryptedBytes = forge.util.decode64(guid);
+      forgePrivateKey.decrypt(encryptedBytes, "RSAES-PKCS1-V1_5");
+      return "DECRYPT_SUCCESS";
+    } catch {
+      return "DECRYPT_FAIL";
+    }
   } catch {
     return "DECRYPT_FAIL";
   }

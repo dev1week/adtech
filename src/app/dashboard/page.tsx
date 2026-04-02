@@ -37,6 +37,7 @@ export default function DashboardPage() {
     guidStatuses: {},
   });
   const [loading, setLoading] = useState(true);
+  const [logsRefreshing, setLogsRefreshing] = useState(false);
 
   async function loadAll() {
     setLoading(true);
@@ -58,6 +59,14 @@ export default function DashboardPage() {
     setDelayMs(settingsJson.delayMs ?? 2000);
     setOrigins(corsJson.origins ?? []);
     setLoading(false);
+  }
+
+  async function refreshLogs() {
+    setLogsRefreshing(true);
+    const logsRes = await fetch("/api/admin/logs");
+    const logsJson = await logsRes.json();
+    setLogs(logsJson.logs ?? []);
+    setLogsRefreshing(false);
   }
 
   useEffect(() => {
@@ -171,7 +180,12 @@ export default function DashboardPage() {
       </section>
 
       <section className="card">
-        <h3>최근 API 호출 로그</h3>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h3>최근 API 호출 로그</h3>
+          <button className="secondary" onClick={() => void refreshLogs()} disabled={logsRefreshing}>
+            {logsRefreshing ? "새로고침 중..." : "새로고침"}
+          </button>
+        </div>
         <div style={{ overflowX: "auto" }}>
           <table>
             <thead>
