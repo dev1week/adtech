@@ -8,6 +8,13 @@
       "when": 1775171030027,
       "tag": "0000_known_tinkerer",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1775690207144,
+      "tag": "0001_premium_anita_blake",
+      "breakpoints": true
     }
   ]
 }

@@ -17,6 +17,7 @@ const requestSchema = z.object({
 });
 
 type GuidStatus = "MISSING_GUID" | "DECRYPT_SUCCESS" | "DECRYPT_FAIL";
+type GuidDecryptResult = { guidStatus: GuidStatus; decryptedGuid: string | null };
 
 function sleep(ms: number) {
   return new Promise((resolve) => {
@@ -24,14 +25,14 @@ function sleep(ms: number) {
   });
 }
 
-function decryptGuid(guid?: string): GuidStatus {
+function decryptGuid(guid?: string): GuidDecryptResult {
   if (!guid) {
-    return "MISSING_GUID";
+    return { guidStatus: "MISSING_GUID", decryptedGuid: null };
   }
 
   const privateKey = process.env.RSA_PRIVATE_KEY;
   if (!privateKey) {
-    return "DECRYPT_FAIL";
+    return { guidStatus: "DECRYPT_FAIL", decryptedGuid: null };
   }
 
   try {
@@ -42,15 +43,15 @@ function decryptGuid(guid?: string): GuidStatus {
     const oaepHashes: Array<"sha1" | "sha256"> = ["sha1", "sha256"];
     for (const oaepHash of oaepHashes) {
       try {
-        privateDecrypt(
+        const decrypted = privateDecrypt(
           {
             key: restoredPrivateKey,
             padding: constants.RSA_PKCS1_OAEP_PADDING,
             oaepHash,
           },
           buffer,
-        );
-        return "DECRYPT_SUCCESS";
+        ).toString("utf8");
+        return { guidStatus: "DECRYPT_SUCCESS", decryptedGuid: decrypted };
       } catch {
         // try next hash
       }
@@ -59,13 +60,13 @@ function decryptGuid(guid?: string): GuidStatus {
     try {
       const forgePrivateKey = forge.pki.privateKeyFromPem(restoredPrivateKey);
       const encryptedBytes = forge.util.decode64(guid);
-      forgePrivateKey.decrypt(encryptedBytes, "RSAES-PKCS1-V1_5");
-      return "DECRYPT_SUCCESS";
+      const decrypted = forgePrivateKey.decrypt(encryptedBytes, "RSAES-PKCS1-V1_5");
+      return { guidStatus: "DECRYPT_SUCCESS", decryptedGuid: decrypted };
     } catch {
-      return "DECRYPT_FAIL";
+      return { guidStatus: "DECRYPT_FAIL", decryptedGuid: null };
     }
   } catch {
-    return "DECRYPT_FAIL";
+    return { guidStatus: "DECRYPT_FAIL", decryptedGuid: null };
   }
 }
 
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { guid, countryCode, languageCode } = parsedBody.data;
-  const guidStatus = decryptGuid(guid);
+  const decryptResult = decryptGuid(guid);
 
   const isSuccess = Math.random() < 0.5;
   const picked = isSuccess ? buildSuccessResponse() : buildFailureResponse(countryCode);
@@ -103,7 +104,9 @@ export async function POST(request: NextRequest) {
   await db.insert(apiCallLogs).values({
     apiPath: "/sec/xhr/coupon/tvCouponDownload",
     method: "POST",
-    guidStatus,
+    guidStatus: decryptResult.guidStatus,
+    encryptedGuid: guid ?? null,
+    decryptedGuid: decryptResult.decryptedGuid,
     countryCode,
     languageCode,
     responseStatus: picked.statusCode,

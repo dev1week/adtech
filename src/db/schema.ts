@@ -20,6 +20,8 @@ export const apiCallLogs = pgTable("api_call_logs", {
   method: varchar("method", { length: 10 }).notNull(),
   calledAt: timestamp("called_at", { withTimezone: true }).defaultNow().notNull(),
   guidStatus: guidStatusEnum("guid_status").notNull(),
+  encryptedGuid: text("encrypted_guid"),
+  decryptedGuid: text("decrypted_guid"),
   countryCode: varchar("country_code", { length: 8 }),
   languageCode: varchar("language_code", { length: 8 }),
   responseStatus: integer("response_status").notNull(),
