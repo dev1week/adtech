@@ -12,11 +12,26 @@ export async function GET() {
   }
 
   const db = getDb();
-  const logs = await db
+  const rows = await db
     .select()
     .from(apiCallLogs)
     .orderBy(desc(apiCallLogs.calledAt))
     .limit(200);
+
+  const logs = rows.map((row) => ({
+    id: row.id,
+    apiPath: row.apiPath,
+    method: row.method,
+    calledAt: row.calledAt,
+    guidStatus: row.guidStatus,
+    encryptedGuid: row.encryptedGuid,
+    decryptedGuid: row.decryptedGuid,
+    countryCode: row.countryCode,
+    languageCode: row.languageCode,
+    responseStatus: row.responseStatus,
+    responseCode: row.responseCode,
+    delayMs: row.delayMs,
+  }));
 
   return NextResponse.json({ logs });
 }
