@@ -25,7 +25,6 @@ export async function GET() {
     calledAt: row.calledAt,
     guidStatus: row.guidStatus,
     encryptedGuid: row.encryptedGuid,
-    decryptedGuid: row.decryptedGuid,
     countryCode: row.countryCode,
     languageCode: row.languageCode,
     responseStatus: row.responseStatus,

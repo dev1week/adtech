@@ -7,7 +7,10 @@ import { z } from "zod";
 import { getDb } from "@/db/client";
 import { apiCallLogs } from "@/db/schema";
 import { buildOptionsResponse, withCors } from "@/lib/cors";
-import { buildFailureResponse, buildSuccessResponse } from "@/lib/coupon-responses";
+import {
+  buildFailureResponse,
+  buildSuccessResponse,
+} from "@/lib/coupon-responses";
 import { getDelayMs } from "@/lib/settings";
 
 const requestSchema = z.object({
@@ -17,7 +20,9 @@ const requestSchema = z.object({
 });
 
 type GuidStatus = "MISSING_GUID" | "DECRYPT_SUCCESS" | "DECRYPT_FAIL";
-type GuidDecryptResult = { guidStatus: GuidStatus; decryptedGuid: string | null };
+type GuidDecryptResult = {
+  guidStatus: GuidStatus;
+};
 
 function sleep(ms: number) {
   return new Promise((resolve) => {
@@ -27,12 +32,12 @@ function sleep(ms: number) {
 
 function decryptGuid(guid?: string): GuidDecryptResult {
   if (!guid) {
-    return { guidStatus: "MISSING_GUID", decryptedGuid: null };
+    return { guidStatus: "MISSING_GUID" };
   }
 
   const privateKey = process.env.RSA_PRIVATE_KEY;
   if (!privateKey) {
-    return { guidStatus: "DECRYPT_FAIL", decryptedGuid: null };
+    return { guidStatus: "DECRYPT_FAIL" };
   }
 
   try {
@@ -43,15 +48,15 @@ function decryptGuid(guid?: string): GuidDecryptResult {
     const oaepHashes: Array<"sha1" | "sha256"> = ["sha1", "sha256"];
     for (const oaepHash of oaepHashes) {
       try {
-        const decrypted = privateDecrypt(
+        privateDecrypt(
           {
             key: restoredPrivateKey,
             padding: constants.RSA_PKCS1_OAEP_PADDING,
             oaepHash,
           },
           buffer,
-        ).toString("utf8");
-        return { guidStatus: "DECRYPT_SUCCESS", decryptedGuid: decrypted };
+        );
+        return { guidStatus: "DECRYPT_SUCCESS" };
       } catch {
         // try next hash
       }
@@ -60,13 +65,13 @@ function decryptGuid(guid?: string): GuidDecryptResult {
     try {
       const forgePrivateKey = forge.pki.privateKeyFromPem(restoredPrivateKey);
       const encryptedBytes = forge.util.decode64(guid);
-      const decrypted = forgePrivateKey.decrypt(encryptedBytes, "RSAES-PKCS1-V1_5");
-      return { guidStatus: "DECRYPT_SUCCESS", decryptedGuid: decrypted };
+      forgePrivateKey.decrypt(encryptedBytes, "RSAES-PKCS1-V1_5");
+      return { guidStatus: "DECRYPT_SUCCESS" };
     } catch {
-      return { guidStatus: "DECRYPT_FAIL", decryptedGuid: null };
+      return { guidStatus: "DECRYPT_FAIL" };
     }
   } catch {
-    return { guidStatus: "DECRYPT_FAIL", decryptedGuid: null };
+    return { guidStatus: "DECRYPT_FAIL" };
   }
 }
 
@@ -75,7 +80,9 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const parsedBody = requestSchema.safeParse(await request.json().catch(() => ({})));
+  const parsedBody = requestSchema.safeParse(
+    await request.json().catch(() => ({})),
+  );
   const delayMs = await getDelayMs();
 
   if (!parsedBody.success) {
@@ -96,7 +103,9 @@ export async function POST(request: NextRequest) {
   const decryptResult = decryptGuid(guid);
 
   const isSuccess = Math.random() < 0.5;
-  const picked = isSuccess ? buildSuccessResponse() : buildFailureResponse(countryCode);
+  const picked = isSuccess
+    ? buildSuccessResponse()
+    : buildFailureResponse(countryCode);
 
   await sleep(delayMs);
 
@@ -106,7 +115,6 @@ export async function POST(request: NextRequest) {
     method: "POST",
     guidStatus: decryptResult.guidStatus,
     encryptedGuid: guid ?? null,
-    decryptedGuid: decryptResult.decryptedGuid,
     countryCode,
     languageCode,
     responseStatus: picked.statusCode,
@@ -114,6 +122,8 @@ export async function POST(request: NextRequest) {
     delayMs,
   });
 
-  const response = NextResponse.json(picked.body, { status: picked.statusCode });
+  const response = NextResponse.json(picked.body, {
+    status: picked.statusCode,
+  });
   return withCors(request, response);
 }

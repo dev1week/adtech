@@ -10,7 +10,6 @@ type LogItem = {
   calledAt: string;
   guidStatus: string;
   encryptedGuid: string | null;
-  decryptedGuid: string | null;
   countryCode: string | null;
   languageCode: string | null;
   responseStatus: number;
@@ -197,7 +196,6 @@ export default function DashboardPage() {
                 <th>Code</th>
                 <th>Guid</th>
                 <th>Encrypted Guid</th>
-                <th>Decrypted Guid</th>
                 <th>Country</th>
                 <th>Lang</th>
                 <th>Delay</th>
@@ -211,7 +209,6 @@ export default function DashboardPage() {
                   <td>{log.responseCode}</td>
                   <td>{log.guidStatus}</td>
                   <td>{log.encryptedGuid ? `${log.encryptedGuid.slice(0, 32)}...` : "-"}</td>
-                  <td>{log.decryptedGuid ?? "-"}</td>
                   <td>{log.countryCode ?? "-"}</td>
                   <td>{log.languageCode ?? "-"}</td>
                   <td>{log.delayMs}ms</td>
