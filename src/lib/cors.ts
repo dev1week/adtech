@@ -16,5 +16,12 @@ export async function withCors(request: NextRequest, response: NextResponse) {
 }
 
 export async function buildOptionsResponse(request: NextRequest) {
-  return withCors(request, new NextResponse(null, { status: 204 }));
+  const response = new NextResponse(null, { status: 204 });
+response.headers.set("Access-Control-Allow-Methods", ALLOW_METHODS);
+  response.headers.set("Access-Control-Allow-Headers", ALLOW_HEADERS);
+  response.headers.set("Access-Control-Allow-Origin", "*");
+  response.headers.set("Vary", "Origin");
+
+
+  return response;
 }
